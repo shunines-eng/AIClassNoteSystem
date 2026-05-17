@@ -1,0 +1,211 @@
+create table assignment_summary
+(
+    id          bigint auto_increment
+        primary key,
+    class_id    bigint   null comment '课程ID',
+    summary     longtext null,
+    create_time datetime null
+)
+    comment 'AI作业总结表';
+
+create table class
+(
+    id          int auto_increment comment '主键'
+        primary key,
+    class_name  varchar(200) not null comment '课程名称',
+    teacher_id  int          not null comment '教师ID-外键',
+    `describe`  varchar(200) null comment '课程描述',
+    create_time datetime     not null comment '创建时间',
+    status      int          null comment '课程状态0屏蔽，1正常'
+)
+    comment '课程表(课程信息)';
+
+create table class_joined
+(
+    id         int auto_increment comment '主键'
+        primary key,
+    class_id   int      not null comment '课程ID',
+    student_id int      not null comment '学生ID',
+    status     int      not null,
+    join_time  datetime not null comment '加入时间'
+)
+    comment '课程参与表（学生参与课程）';
+
+create table example_note
+(
+    id         int not null
+        primary key,
+    note_id    int null comment '笔记id',
+    `describe` int null comment '笔记描述'
+)
+    comment '示例笔记';
+
+create table note
+(
+    id          int auto_increment comment '主键'
+        primary key,
+    title       varchar(200) not null comment '标题',
+    content     longtext     null comment '笔记内容(长文本)',
+    user_id     int          not null comment '作者ID',
+    task_id     int          null comment '关联作业(可为空，表示无来源笔记)',
+    vision      tinyint      null comment '可见性:0私有-1班级可见-2公开',
+    create_time datetime     null comment '创建时间',
+    update_time datetime     null comment '更新时间',
+    status      int          null comment '状态:0正常-1屏蔽',
+    tag         varchar(255) null,
+    summary     longtext     null comment '摘要',
+    is_score    int          null comment '是否被批改(1是/0否)'
+)
+    comment '笔记表';
+
+create table note_att
+(
+    id        int auto_increment comment '主键'
+        primary key,
+    note_id   int          null comment '笔记ID',
+    file_name varchar(255) null,
+    file_url  varchar(255) null,
+    file_size int          null comment '文件大小，单位：KB'
+)
+    comment '笔记附件表';
+
+create table note_comment
+(
+    id          int auto_increment comment '主键'
+        primary key,
+    teacher_id  int      null comment '教师ID',
+    note_id     int      null comment '笔记ID',
+    comment     longtext null comment '评价内容',
+    score       int      null comment '评分',
+    update_time datetime null comment '评价时间',
+    constraint idx_unique_note_id
+        unique (note_id)
+)
+    comment '笔记教师评价表';
+
+create table note_interaction
+(
+    id          int auto_increment comment '主键'
+        primary key,
+    note_id     int      null comment '笔记ID',
+    user_id     int      null comment '用户ID',
+    type        int      not null comment ' 类型1已阅2点赞',
+    create_time datetime null comment '互动时间'
+)
+    comment '笔记互动表';
+
+create table note_version
+(
+    id             int auto_increment comment '版本ID'
+        primary key,
+    note_id        int                                not null comment '原笔记ID',
+    version        int                                not null comment '版本号(从1开始递增)',
+    title          varchar(200)                       not null comment '标题快照',
+    content        longtext                           null comment '内容快照',
+    user_id        int                                not null comment '修改者ID',
+    change_summary varchar(500)                       null comment '变更摘要',
+    created_at     datetime default CURRENT_TIMESTAMP null comment '版本创建时间',
+    constraint fk_note_version
+        foreign key (note_id) references note (id)
+            on delete cascade
+)
+    comment '笔记版本历史表';
+
+create index idx_note_created
+    on note_version (note_id, created_at);
+
+create index idx_note_version
+    on note_version (note_id, version);
+
+create table report
+(
+    id          int auto_increment
+        primary key,
+    type        int           null comment '举报类型1:用户，2:笔记，3：课程',
+    type_id     int           not null comment '举报类型对应id',
+    user_id     int           null comment '举报人id',
+    info        varchar(2000) null comment '举报原因',
+    create_time datetime      null comment '举报时间',
+    status      int           not null comment '受理状态：0未受理，1已受理'
+)
+    comment '举报';
+
+create table tag
+(
+    id          int auto_increment
+        primary key,
+    name        varchar(50)                        not null comment '标签名称',
+    description varchar(255)                       null comment '标签描述',
+    category    varchar(50)                        null comment '标签分类（如：技术、学科、难度等）',
+    color       varchar(20)                        null comment '标签颜色（用于前端显示）',
+    usage_count int      default 0                 null comment '使用次数（统计用）',
+    create_time datetime default CURRENT_TIMESTAMP null,
+    update_time datetime default CURRENT_TIMESTAMP null on update CURRENT_TIMESTAMP,
+    constraint name
+        unique (name)
+)
+    comment '标签表';
+
+create table note_tag
+(
+    id          int auto_increment
+        primary key,
+    note_id     int                                not null comment '笔记ID',
+    tag_id      int                                not null comment '标签ID',
+    create_time datetime default CURRENT_TIMESTAMP null,
+    constraint uk_note_tag
+        unique (note_id, tag_id),
+    constraint note_tag_ibfk_1
+        foreign key (note_id) references note (id)
+            on delete cascade,
+    constraint note_tag_ibfk_2
+        foreign key (tag_id) references tag (id)
+            on delete cascade
+)
+    comment '笔记标签关联表';
+
+create index idx_note_id
+    on note_tag (note_id);
+
+create index idx_tag_id
+    on note_tag (tag_id);
+
+create index idx_category
+    on tag (category);
+
+create index idx_name
+    on tag (name);
+
+create table task
+(
+    id                  int auto_increment comment '主键'
+        primary key,
+    class_id            int          null comment '课程ID',
+    title               varchar(200) null comment '作业标题',
+    content             varchar(200) null comment '作业描述',
+    deadline            datetime     null comment '截止时间',
+    attachment_required tinyint(1)   not null comment '是否必须上传附件',
+    create_time         datetime     null comment '上传时间',
+    att                 varchar(200) null comment '附件URL'
+)
+    comment '作业发布表';
+
+create table user
+(
+    id           int auto_increment comment '主键'
+        primary key,
+    username     varchar(100) not null comment '用户名（可变可重复）',
+    user_account varchar(20)  not null comment '账号（唯一）',
+    password     varchar(100) null,
+    real_name    varchar(100) null comment '真实姓名',
+    phone        varchar(40)  null comment '电话',
+    avatar       varchar(200) null comment '头像（地址）',
+    age          int          null comment '年龄',
+    signature    longtext     null,
+    status       int          not null,
+    create_time  datetime     not null comment '创建时间',
+    gender       int          null,
+    role         int          null comment '职能（1:学生，2:教师，3:管理员）'
+)
+    comment '用户表' collate = utf8mb3_bin;
+
